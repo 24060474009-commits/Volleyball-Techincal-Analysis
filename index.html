@@ -1,0 +1,1863 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Volleyball Technical Analysis Pro — UNESA Sport Analytics</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js untuk grafik performa interaktif -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Font Awesome untuk Ikon Olahraga & UI -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        court: {
+                            wood: '#d97736',
+                            woodDark: '#b85d22',
+                            outer: '#1e3a8a',
+                            line: '#ffffff'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            overflow-x: hidden;
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+        /* Animasi pulse halus untuk status aktif */
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.05); opacity: 0.4; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+        .animate-pulse-ring {
+            animation: pulse-ring 2s infinite ease-in-out;
+        }
+        canvas {
+            touch-action: none; /* Mencegah scroll saat menggambar arah bola di perangkat layar sentuh */
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans antialiased selection:bg-orange-500 selection:text-white">
+
+    <!-- HEADER / TOP BAR -->
+    <header class="bg-slate-900/95 border-b border-slate-800 sticky top-0 z-30 backdrop-blur-md px-4 py-2.5 shadow-lg">
+        <div class="max-w-[1600px] mx-auto flex flex-wrap items-center justify-between gap-3">
+            <!-- Brand & Title -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center shadow-lg shadow-orange-500/20">
+                    <i class="fa-solid fa-volleyball text-white text-xl"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="font-extrabold text-base sm:text-lg tracking-tight text-white">VOLLEYBALL TECHNICAL ANALYSIS</h1>
+                        <span class="hidden sm:inline-block px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-full">Pro Edition</span>
+                    </div>
+                    <p class="text-xs text-slate-400">Single-Court Integrated Tactical & Statistical System</p>
+                </div>
+            </div>
+
+            <!-- Match Timer & Realtime Clock (Waktu Aktivitas Otomatis) -->
+            <div class="flex items-center gap-2 sm:gap-4 bg-slate-800/90 border border-slate-700/80 px-3 py-1.5 rounded-xl">
+                <div class="flex flex-col">
+                    <span class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Waktu Real-Time</span>
+                    <span id="realtime-clock" class="font-mono text-xs sm:text-sm font-bold text-emerald-400">00:00:00</span>
+                </div>
+                <div class="h-6 w-px bg-slate-700"></div>
+                <div class="flex flex-col">
+                    <span class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Durasi Match</span>
+                    <span id="match-timer" class="font-mono text-xs sm:text-sm font-bold text-amber-400">00:00</span>
+                </div>
+                <div class="flex items-center gap-1 ml-1">
+                    <button id="btn-toggle-timer" onclick="toggleMatchTimer()" title="Mulai / Jeda Timer" class="w-8 h-8 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center transition shadow">
+                        <i id="icon-timer" class="fa-solid fa-pause text-xs"></i>
+                    </button>
+                    <button onclick="resetMatchTimer()" title="Reset Timer" class="w-8 h-8 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 flex items-center justify-center transition">
+                        <i class="fa-solid fa-rotate-left text-xs"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Quick Actions: Export & Reset -->
+            <div class="flex items-center gap-2">
+                <button onclick="exportToCSV()" class="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-2 transition shadow-md shadow-blue-600/20">
+                    <i class="fa-solid fa-file-csv"></i>
+                    <span class="hidden md:inline">Export CSV</span>
+                </button>
+                <button id="btn-analytics" onclick="toggleAnalytics()" class="px-3 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-violet-600/20 transition">
+                    <i class="fa-solid fa-chart-line"></i><span>Grafik & Visualisasi</span>
+                </button>
+                <button onclick="showConfirmResetModal()" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-red-900/50 text-slate-300 hover:text-red-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition">
+                    <i class="fa-solid fa-trash-can"></i>
+                    <span class="hidden md:inline">Reset Data</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN DASHBOARD: 1 TAMPILAN LAPANGAN & POSISI TERINTEGRASI -->
+    <main class="flex-1 max-w-[1600px] w-full mx-auto p-3 sm:p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+        <!-- KOLOM KIRI (3 Kolom): LINEUP OTOMATIS, PENANDA SETTER/LIBERO, ROTASI & CHANGE -->
+        <section class="lg:col-span-3 flex flex-col gap-3">
+            
+            <!-- Card Pengaturan Tim & Auto-Fill Lineup -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 shadow-xl">
+                <div class="flex items-center justify-between mb-2.5">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                        <i class="fa-solid fa-users-gear text-orange-400"></i> Lineup & Roster Otomatis
+                    </h2>
+                    <span id="rotation-badge" class="px-2 py-0.5 text-[11px] font-bold bg-orange-500/20 text-orange-300 border border-orange-500/30 rounded-md">
+                        Rotasi 1 (P1)
+                    </span>
+                </div>
+
+                <!-- Pilihan Preset Tim / Auto Fill -->
+                <div class="grid grid-cols-2 gap-2 mb-3">
+                    <button onclick="autoFillLineup('unesa')" class="px-2.5 py-2 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow transition">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Auto-Fill Tim A
+                    </button>
+                    <button onclick="autoFillLineup('proliga')" class="px-2.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+                        <i class="fa-solid fa-bolt text-yellow-400"></i> Auto-Fill Tim B
+                    </button>
+                </div>
+
+                <!-- Tombol Rotasi Otomatis & Change Libero/MB -->
+                <div class="grid grid-cols-2 gap-2 mb-3">
+                    <button onclick="rotatePlayers()" class="px-2.5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md shadow-blue-600/20 transition active:scale-95">
+                        <i class="fa-solid fa-arrows-rotate"></i> Rotasi (+1)
+                    </button>
+                    <button onclick="triggerLiberoChange()" id="btn-libero-change" class="px-2.5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md shadow-purple-600/20 transition active:scale-95">
+                        <i class="fa-solid fa-right-left"></i> CHG (L ↔ MB)
+                    </button>
+                </div>
+
+                <!-- Daftar Posisi P1 - P6 (Editable Nama & Nopung) -->
+                <div class="space-y-1.5">
+                    <div class="flex items-center justify-between text-[11px] text-slate-400 px-1">
+                        <span>Posisi / Role</span>
+                        <span>No. & Nama Pemain</span>
+                    </div>
+                    <div id="lineup-list" class="space-y-1.5 max-h-[250px] overflow-y-auto pr-1">
+                        <!-- Diisi secara dinamis oleh JS -->
+                    </div>
+                </div>
+
+                <!-- AREA KHUSUS LIBERO (DISENDIRIKAN) -->
+                <div class="mt-3 pt-3 border-t border-slate-800">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-purple-500 animate-ping"></span>
+                            Zona Khusus Libero (Terpisah)
+                        </span>
+                        <span id="libero-status-tag" class="text-[10px] px-1.5 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-700/50">Siaga Bench</span>
+                    </div>
+                    <div id="libero-slot-container" class="bg-purple-950/30 border border-purple-500/40 rounded-xl p-2 flex items-center gap-2">
+                        <!-- Diisi dinamis oleh JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card Ringkasan Statistik Cepat -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 shadow-xl flex-1">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300 mb-2.5 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-pie text-emerald-400"></i> Statistik Efektivitas Live
+                </h3>
+                <div id="live-stats-grid" class="grid grid-cols-2 gap-2 text-xs">
+                    <!-- Statistik dirender oleh JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- KOLOM TENGAH (5 Kolom): LAPANGAN INTERAKTIF (TOP-DOWN & REAR ANGLE) + CUSTOM ARROW -->
+        <section class="lg:col-span-5 flex flex-col gap-3">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 shadow-xl flex flex-col h-full">
+                
+                <!-- Toolbar Sudut Pandang (Camera Angle) & Kontrol Gambar Arah -->
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <!-- Switcher Sudut Pandang Lapangan -->
+                    <div class="inline-flex bg-slate-800 p-1 rounded-xl border border-slate-700">
+                        <button id="btn-view-top" onclick="setCameraAngle('top')" class="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 bg-orange-600 text-white shadow transition">
+                            <i class="fa-solid fa-border-all"></i> Tampak Atas (2D)
+                        </button>
+                        <button id="btn-view-rear" onclick="setCameraAngle('rear')" class="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 text-slate-300 hover:text-white transition">
+                            <i class="fa-solid fa-eye"></i> Sudut Belakang (3D Set)
+                        </button>
+                    </div>
+
+                    <!-- Reset Panah Arah -->
+                    <button onclick="clearCurrentArrow()" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition">
+                        <i class="fa-solid fa-eraser text-amber-400"></i> Hapus Panah
+                    </button>
+                </div>
+
+                <!-- Info Petunjuk Interaksi Lapangan -->
+                <div class="bg-slate-800/70 border border-slate-700/70 rounded-xl px-3 py-2 mb-2.5 flex items-center justify-between gap-2 text-xs">
+                    <div class="flex items-center gap-2 text-slate-300">
+                        <i class="fa-solid fa-bezier-curve text-orange-400"></i>
+                        <span id="canvas-instruction">Tarik garis (klik & geser) di lapangan untuk membuat arah bola.</span>
+                    </div>
+                    <span id="arrow-coords-badge" class="font-mono text-[10px] text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-700 shrink-0">
+                        Arah: Belum digambar
+                    </span>
+                </div>
+
+                <!-- Wadah Canvas Lapangan Voli Responsif -->
+                <div id="court-container" class="relative w-full flex-1 min-h-[380px] sm:min-h-[440px] bg-slate-950 rounded-xl overflow-hidden border-2 border-slate-700/80 shadow-inner flex items-center justify-center">
+                    <canvas id="volleyball-canvas" class="w-full h-full block cursor-crosshair"></canvas>
+                    
+                    <!-- Legenda Penanda Pemain & Teknik di Pojok Canvas -->
+                    <div class="absolute bottom-2 left-2 right-2 flex flex-wrap items-center justify-between gap-1.5 pointer-events-none">
+                        <div class="flex items-center gap-2 bg-slate-900/85 backdrop-blur px-2.5 py-1 rounded-lg border border-slate-700/70 text-[10px]">
+                            <span class="flex items-center gap-1 text-amber-300 font-bold"><span class="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span> S = Setter</span>
+                            <span class="flex items-center gap-1 text-purple-300 font-bold"><span class="w-2.5 h-2.5 rounded-full bg-purple-500 inline-block"></span> L = Libero (Terpisah)</span>
+                            <span class="flex items-center gap-1 text-sky-300 font-bold"><span class="w-2.5 h-2.5 rounded-full bg-sky-500 inline-block"></span> MB = Middle Blocker</span>
+                        </div>
+                        <div id="view-angle-label" class="bg-blue-950/90 text-blue-200 px-2.5 py-1 rounded-lg border border-blue-500/40 text-[10px] font-semibold">
+                            Sudut: Atas (Full Court)
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Preset Arah Cepat untuk Mempermudah Analisis (Opsional selain gambar manual) -->
+                <div class="mt-2.5 pt-2.5 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
+                    <span class="text-[11px] font-semibold text-slate-400">Arah Cepat (Opsional):</span>
+                    <div class="flex flex-wrap gap-1.5" id="quick-direction-presets">
+                        <!-- Diisi dinamis sesuai teknik yang dipilih -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- KOLOM KANAN (4 Kolom): PANEL INPUT TEKNIK, KODE KONTEKSTUAL & LOG AKTIVITAS OTOMATIS -->
+        <section class="lg:col-span-4 flex flex-col gap-3">
+            
+            <!-- Card Pencatatan Teknik & Kode Hasil -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 shadow-xl">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                        <i class="fa-solid fa-clipboard-check text-blue-400"></i> Input Analisis Teknik
+                    </h2>
+                    <span class="text-[11px] text-slate-400">Klik pemain di lapangan / pilih</span>
+                </div>
+
+                <!-- 1. Pilih Pemain Pelaku Aksi -->
+                <div class="mb-3">
+                    <label class="block text-[11px] font-semibold text-slate-400 mb-1.5">1. Pemain Pelaku Aksi (Active Court & Libero)</label>
+                    <div id="player-selector-grid" class="grid grid-cols-4 sm:grid-cols-7 lg:grid-cols-4 gap-1.5">
+                        <!-- Tombol pemain dirender dinamis -->
+                    </div>
+                </div>
+
+                <!-- 2. Pilih Teknik (Serve, Spike, Passing, Libero, Setter, Block) -->
+                <div class="mb-3">
+                    <label class="block text-[11px] font-semibold text-slate-400 mb-1.5">2. Pilih Teknik Bola Voli</label>
+                    <div class="grid grid-cols-3 gap-1.5" id="technique-buttons">
+                        <button type="button" onclick="selectTechnique('Serve')" data-tech="Serve" class="tech-btn py-2 px-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition">
+                            <i class="fa-solid fa-meteor"></i> Serve
+                        </button>
+                        <button type="button" onclick="selectTechnique('Spike')" data-tech="Spike" class="tech-btn py-2 px-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition">
+                            <i class="fa-solid fa-bolt"></i> Spike
+                        </button>
+                        <button type="button" onclick="selectTechnique('Passing')" data-tech="Passing" class="tech-btn py-2 px-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition">
+                            <i class="fa-solid fa-hands-holding"></i> Passing
+                        </button>
+                        <button type="button" onclick="selectTechnique('Libero')" data-tech="Libero" class="tech-btn py-2 px-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition">
+                            <i class="fa-solid fa-shield-halved"></i> Libero
+                        </button>
+                        <button type="button" onclick="selectTechnique('Setter')" data-tech="Setter" class="tech-btn py-2 px-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition">
+                            <i class="fa-solid fa-wand-sparkles"></i> Setter
+                        </button>
+                        <button type="button" onclick="selectTechnique('Block')" data-tech="Block" class="tech-btn py-2 px-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition">
+                            <i class="fa-solid fa-hand"></i> Block
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 3. Kode Hasil Dinamis (Serve = TANPA kode Point!) -->
+                <div class="mb-3">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label class="text-[11px] font-semibold text-slate-400">3. Kode Hasil / Evaluasi Teknik</label>
+                        <span id="code-rule-hint" class="text-[10px] text-amber-400 font-medium"></span>
+                    </div>
+                    <div id="outcome-codes-container" class="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                        <!-- Tombol kode dirender dinamis berdasarkan teknik -->
+                    </div>
+                </div>
+
+                <!-- 4. Catatan Arah / Keterangan Tambahan (Otomatis terisi dari panah + bisa diedit) -->
+                <div class="mb-3">
+                    <label class="block text-[11px] font-semibold text-slate-400 mb-1">4. Detail Arah & Keterangan (Otomatis dari Panah)</label>
+                    <input type="text" id="action-note-input" placeholder="Gambar panah di lapangan atau ketik arah (mis. Cross Court, Quick B)..." class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-orange-500">
+                </div>
+
+                <!-- Tombol Simpan Aktivitas dengan Waktu Otomatis -->
+                <button onclick="recordTechnicalAction()" class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition active:scale-[0.99]">
+                    <i class="fa-solid fa-plus-circle"></i>
+                    <span>Catat Aktivitas (Waktu Otomatis)</span>
+                </button>
+            </div>
+
+            <!-- Card Riwayat Log Aktivitas Otomatis -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 shadow-xl flex-1 flex flex-col min-h-[260px]">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                        <i class="fa-solid fa-clock-rotate-left text-amber-400"></i> Log Aktivitas (<span id="log-count">0</span>)
+                    </h3>
+                    <select id="log-filter-tech" onchange="renderLogs()" class="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-[11px] text-slate-300 focus:outline-none">
+                        <option value="ALL">Semua Teknik</option>
+                        <option value="Serve">Serve</option>
+                        <option value="Spike">Spike</option>
+                        <option value="Passing">Passing</option>
+                        <option value="Libero">Libero</option>
+                        <option value="Setter">Setter</option>
+                        <option value="Block">Block</option>
+                        <option value="System">Rotasi / Change</option>
+                    </select>
+                </div>
+
+                <div id="activity-log-list" class="flex-1 overflow-y-auto space-y-1.5 max-h-[300px] pr-1">
+                    <!-- Log aktivitas dirender oleh JS -->
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ANALYTICS DASHBOARD: GRAFIK BERDASARKAN LOG AKTIVITAS LANGSUNG -->
+    <section id="analytics-dashboard" class="hidden max-w-[1600px] w-full mx-auto p-3 sm:p-4 space-y-4">
+        <div class="relative overflow-hidden rounded-2xl border border-violet-500/30 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-5 shadow-xl">
+            <div class="absolute -right-10 -top-16 h-56 w-56 rounded-full bg-violet-500/10 blur-3xl"></div>
+            <div class="relative flex flex-wrap items-center justify-between gap-3">
+                <div><div class="text-[10px] font-bold uppercase tracking-[.22em] text-violet-300">Performance intelligence</div>
+                    <h2 class="mt-1 text-xl sm:text-2xl font-extrabold text-white">Grafik & Visualisasi Performa</h2>
+                    <p class="mt-1 text-xs text-slate-300">Analisis otomatis dari seluruh aktivitas teknik yang dicatat pada panel pertandingan.</p></div>
+                <button onclick="toggleAnalytics(false)" class="rounded-xl border border-slate-600 bg-slate-800/80 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700"><i class="fa-solid fa-arrow-left mr-1.5"></i>Kembali ke Analisis Lapangan</button>
+            </div>
+        </div>
+        <div id="analytics-kpis" class="grid grid-cols-2 lg:grid-cols-4 gap-3"></div>
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <article class="rounded-2xl border border-slate-700 bg-slate-900 p-4 shadow-xl"><div class="mb-3 flex items-center justify-between"><div><h3 class="text-sm font-bold text-white">Berhasil vs Perlu Evaluasi</h3><p class="text-[11px] text-slate-400">Jumlah hasil berdasarkan teknik</p></div><i class="fa-solid fa-chart-column text-blue-400"></i></div><div class="h-72"><canvas id="analytics-bar"></canvas></div></article>
+            <article class="rounded-2xl border border-slate-700 bg-slate-900 p-4 shadow-xl"><div class="mb-3 flex items-center justify-between"><div><h3 class="text-sm font-bold text-white">Profil Efektivitas Teknik</h3><p class="text-[11px] text-slate-400">Persentase hasil positif per teknik</p></div><i class="fa-solid fa-draw-polygon text-emerald-400"></i></div><div class="h-72"><canvas id="analytics-radar"></canvas></div></article>
+            <article class="rounded-2xl border border-slate-700 bg-slate-900 p-4 shadow-xl"><div class="mb-3 flex items-center justify-between"><div><h3 class="text-sm font-bold text-white">Tren Performa Aktivitas</h3><p class="text-[11px] text-slate-400">Akumulasi efektivitas sesuai urutan pencatatan</p></div><i class="fa-solid fa-chart-line text-indigo-400"></i></div><div class="h-72"><canvas id="analytics-trend"></canvas></div></article>
+            <article class="rounded-2xl border border-slate-700 bg-slate-900 p-4 shadow-xl"><div class="mb-3 flex items-center justify-between"><div><h3 class="text-sm font-bold text-white">Distribusi Hasil Teknik</h3><p class="text-[11px] text-slate-400">Komposisi hasil dari semua aktivitas</p></div><i class="fa-solid fa-chart-pie text-amber-400"></i></div><div class="h-72"><canvas id="analytics-outcomes"></canvas></div></article>
+        </div>
+        <div class="rounded-2xl border border-slate-700 bg-slate-900 p-4 shadow-xl"><div class="mb-3 flex flex-wrap items-center justify-between gap-2"><div><h3 class="text-sm font-bold text-white">Ringkasan Teknik</h3><p class="text-[11px] text-slate-400">Detail frekuensi, hasil positif, evaluasi, dan efektivitas</p></div><span class="rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1 text-[10px] text-slate-300">Live dari log pertandingan</span></div><div class="overflow-x-auto"><table class="w-full min-w-[600px] text-xs"><thead class="text-[10px] uppercase tracking-wider text-slate-400"><tr class="border-b border-slate-700"><th class="py-2 text-left">Teknik</th><th class="py-2 text-center">Total</th><th class="py-2 text-center">Positif</th><th class="py-2 text-center">Evaluasi</th><th class="py-2 text-right">Efektivitas</th></tr></thead><tbody id="analytics-table" class="divide-y divide-slate-800 text-slate-200"></tbody></table></div></div>
+    </section>
+
+    <!-- TOAST NOTIFICATION (Pengganti alert()) -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- MODAL KONFIRMASI RESET (Pengganti confirm()) -->
+    <div id="reset-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-sm w-full p-5 shadow-2xl">
+            <div class="flex items-center gap-3 text-red-400 mb-3">
+                <div class="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+                    <i class="fa-solid fa-triangle-exclamation text-lg"></i>
+                </div>
+                <h3 class="font-bold text-base text-white">Reset Seluruh Data Analisis?</h3>
+            </div>
+            <p class="text-xs text-slate-300 mb-4 leading-relaxed">
+                Tindakan ini akan menghapus semua riwayat pencatatan teknik, panah arah, dan mengembalikan posisi rotasi ke awal.
+            </p>
+            <div class="flex items-center justify-end gap-2">
+                <button onclick="hideConfirmResetModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition">Batal</button>
+                <button onclick="confirmResetAll()" class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition">Ya, Reset Semua</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT APPLICATION LOGIC -->
+    <script>
+        /**
+         * ============================================================================
+         * 1. STATE & KONFIGURASI UTAMA APLIKASI
+         * ============================================================================
+         */
+        const ROSTER_PRESETS = {
+            unesa: {
+                court: [
+                    { pos: 'P1', number: '12', name: 'Raka (S)', role: 'S' },   // Setter
+                    { pos: 'P2', number: '07', name: 'Dimas (OH)', role: 'OH' }, // Outside Hitter
+                    { pos: 'P3', number: '09', name: 'Bagas (MB)', role: 'MB' }, // Middle Blocker
+                    { pos: 'P4', number: '04', name: 'Fajar (OP)', role: 'OP' }, // Opposite
+                    { pos: 'P5', number: '11', name: 'Ilham (OH)', role: 'OH' }, // Outside Hitter
+                    { pos: 'P6', number: '15', name: 'Arif (MB)', role: 'MB' }   // Middle Blocker
+                ],
+                libero: { number: '01', name: 'Bayu (L)', role: 'L', isOnCourt: false, replacedPlayer: null }
+            },
+            proliga: {
+                court: [
+                    { pos: 'P1', number: '08', name: 'Nizar (S)', role: 'S' },
+                    { pos: 'P2', number: '14', name: 'Farhan (OH)', role: 'OH' },
+                    { pos: 'P3', number: '17', name: 'Yuda (MB)', role: 'MB' },
+                    { pos: 'P4', number: '02', name: 'Rivan (OP)', role: 'OP' },
+                    { pos: 'P5', number: '10', name: 'Doni (OH)', role: 'OH' },
+                    { pos: 'P6', number: '05', name: 'Hendra (MB)', role: 'MB' }
+                ],
+                libero: { number: '19', name: 'Fahreza (L)', role: 'L', isOnCourt: false, replacedPlayer: null }
+            }
+        };
+
+        // Konfigurasi Kode Penilaian per Teknik
+        // PENTING: Pada teknik 'Serve', kode 'Point' DIHAPUS sesuai permintaan pengguna!
+        const TECHNIQUE_CODES = {
+            Serve: [
+                { code: 'ACE', label: 'Ace (Langsung)', color: 'emerald', desc: 'Servis langsung menghasilkan poin tanpa tersentuh/gagal diterima' },
+                { code: 'IN / PLAY', label: 'In / Play', color: 'blue', desc: 'Bola masuk dan permainan berlanjut' },
+                { code: 'NET / OUT', label: 'Error / Fault', color: 'red', desc: 'Bola menyangkut net atau keluar lapangan' }
+            ],
+            Spike: [
+                { code: 'POINT', label: 'Point / Kill', color: 'emerald', desc: 'Spike mematikan menghasilkan poin' },
+                { code: 'EFFECTIVE', label: 'Effective / In', color: 'blue', desc: 'Bola masuk namun masih dapat ditahan lawan' },
+                { code: 'BLOCKED', label: 'Blocked', color: 'amber', desc: 'Spike terbendung blok lawan' },
+                { code: 'ERROR', label: 'Error / Out', color: 'red', desc: 'Spike keluar atau menyangkut net' }
+            ],
+            Passing: [
+                { code: 'PERFECT (#)', label: 'Perfect (3)', color: 'emerald', desc: 'Passing akurat tepat ke posisi Setter' },
+                { code: 'GOOD (+)', label: 'Good (2)', color: 'blue', desc: 'Passing cukup baik, setter masih bisa mengumpan' },
+                { code: 'OVER / POOR', label: 'Poor (1)', color: 'amber', desc: 'Bola tanggung / menyeberang net' },
+                { code: 'ERROR (=)', label: 'Error (0)', color: 'red', desc: 'Gagal menerima bola' }
+            ],
+            Libero: [
+                { code: 'DIG POINT', label: 'Dig / Save', color: 'emerald', desc: 'Penyelamatan gemilang oleh Libero' },
+                { code: 'PASS GOOD', label: 'Receive Good', color: 'blue', desc: 'Penerimaan servis/serangan akurat' },
+                { code: 'CHG (L↔MB)', label: 'Change L ↔ MB', color: 'purple', desc: 'Pergantian khusus Libero dengan Middle Blocker' },
+                { code: 'ERROR', label: 'Error', color: 'red', desc: 'Gagal melakukan dig/receive' }
+            ],
+            Setter: [
+                { code: 'ASSIST / POINT', label: 'Assist Point', color: 'emerald', desc: 'Umpan matang yang berbuah poin' },
+                { code: 'OPEN / SEMI', label: 'Set Open/Semi', color: 'blue', desc: 'Umpan ke posisi 4 atau 2' },
+                { code: 'QUICK / BACK', label: 'Quick / 3M', color: 'amber', desc: 'Umpan cepat tengah atau back attack' },
+                { code: 'DUMP POINT', label: 'Setter Dump', color: 'teal', desc: 'Tipuan langsung dari Setter' },
+                { code: 'FAULT', label: 'Double / Error', color: 'red', desc: 'Kesalahan teknis umpan' }
+            ],
+            Block: [
+                { code: 'KILL BLOCK', label: 'Point Block', color: 'emerald', desc: 'Blok langsung mematikan di area lawan' },
+                { code: 'SOFT TOUCH', label: 'Rebound / Touch', color: 'blue', desc: 'Bola menyentuh blok dan memperlambat serangan' },
+                { code: 'TOOL / OUT', label: 'Block Out', color: 'amber', desc: 'Bola memantul keluar dari tangan blocker' },
+                { code: 'NET FAULT', label: 'Net Touch', color: 'red', desc: 'Menyentuh net saat melakukan blok' }
+            ]
+        };
+
+        // Preset Arah Cepat per Teknik
+        const DIRECTION_PRESETS = {
+            Serve: [
+                { label: 'Ke Zona 1', from: [0.85, 0.96], to: [0.22, 0.15] },
+                { label: 'Ke Zona 5', from: [0.15, 0.96], to: [0.80, 0.15] },
+                { label: 'Float Tengah (Z6)', from: [0.50, 0.96], to: [0.50, 0.22] }
+            ],
+            Spike: [
+                { label: 'Cross Court (P4→Z5)', from: [0.20, 0.56], to: [0.82, 0.18] },
+                { label: 'Line / Straight (P4→Z1)', from: [0.20, 0.56], to: [0.16, 0.18] },
+                { label: 'Quick Tengah (P3→Z6)', from: [0.50, 0.54], to: [0.50, 0.25] }
+            ],
+            Passing: [
+                { label: 'Z5 → Setter (P2/P3)', from: [0.22, 0.82], to: [0.65, 0.56] },
+                { label: 'Z1 → Setter (P2/P3)', from: [0.78, 0.82], to: [0.65, 0.56] },
+                { label: 'Z6 → Setter (P2/P3)', from: [0.50, 0.85], to: [0.65, 0.56] }
+            ],
+            Libero: [
+                { label: 'Dig Belakang → Setter', from: [0.25, 0.84], to: [0.65, 0.56] },
+                { label: 'Cover Spike → Tengah', from: [0.35, 0.72], to: [0.52, 0.58] }
+            ],
+            Setter: [
+                { label: 'Umpan Open (ke P4)', from: [0.68, 0.56], to: [0.18, 0.53] },
+                { label: 'Umpan Quick (ke P3)', from: [0.68, 0.56], to: [0.50, 0.52] },
+                { label: 'Back Set (ke P2)', from: [0.62, 0.56], to: [0.84, 0.53] },
+                { label: 'Back Attack (Pipe P6)', from: [0.65, 0.56], to: [0.50, 0.72] }
+            ],
+            Block: [
+                { label: 'Blok P4 → Zona 4', from: [0.20, 0.51], to: [0.22, 0.35] },
+                { label: 'Blok P3 → Tengah', from: [0.50, 0.51], to: [0.50, 0.32] },
+                { label: 'Blok P2 → Zona 2', from: [0.80, 0.51], to: [0.78, 0.35] }
+            ]
+        };
+
+        // Warna panah berdasarkan teknik
+        const TECHNIQUE_COLORS = {
+            Serve: '#f97316',   // Orange
+            Spike: '#ef4444',   // Red
+            Passing: '#3b82f6', // Blue
+            Libero: '#a855f7',  // Purple
+            Setter: '#eab308',  // Yellow/Gold
+            Block: '#10b981'    // Emerald
+        };
+
+        // Instance grafik analitik
+        const analyticsCharts = {};
+        let analyticsVisible = false;
+
+        // State Aplikasi
+        let appState = {
+            rotationCount: 1, // 1 s/d 6
+            cameraAngle: 'top', // 'top' (2D) atau 'rear' (3D perspektif belakang untuk melihat arah umpan setter)
+            players: JSON.parse(JSON.stringify(ROSTER_PRESETS.unesa.court)),
+            libero: JSON.parse(JSON.stringify(ROSTER_PRESETS.unesa.libero)),
+            selectedPlayerId: 'P1', // 'P1'..'P6' atau 'LIBERO'
+            selectedTechnique: 'Serve',
+            selectedOutcome: 'ACE',
+            currentArrow: null, // { startNorm: {x, y}, endNorm: {x, y}, label: '' }
+            isDrawing: false,
+            dragStart: null,
+            logs: [],
+            timerSeconds: 0,
+            timerRunning: true
+        };
+
+        /**
+         * ============================================================================
+         * 2. INISIALISASI & TIMER AKTIVITAS OTOMATIS
+         * ============================================================================
+         */
+        window.onload = function () {
+            initCanvas();
+            renderLineupUI();
+            renderPlayerSelector();
+            selectTechnique('Serve');
+            renderStats();
+            renderLogs();
+            startClocks();
+            drawCourt();
+        };
+
+        function startClocks() {
+            setInterval(() => {
+                // Waktu Real-Time
+                const now = new Date();
+                const timeStr = now.toTimeString().split(' ')[0];
+                document.getElementById('realtime-clock').textContent = timeStr;
+
+                // Match Elapsed Timer
+                if (appState.timerRunning) {
+                    appState.timerSeconds++;
+                    document.getElementById('match-timer').textContent = formatDuration(appState.timerSeconds);
+                }
+            }, 1000);
+        }
+
+        function formatDuration(sec) {
+            const m = Math.floor(sec / 60).toString().padStart(2, '0');
+            const s = (sec % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        function getAutoTimestamp() {
+            const now = new Date();
+            const clock = now.toTimeString().split(' ')[0];
+            const matchTime = formatDuration(appState.timerSeconds);
+            return { clock, matchTime, full: `${clock} (M:${matchTime})` };
+        }
+
+        function toggleMatchTimer() {
+            appState.timerRunning = !appState.timerRunning;
+            const icon = document.getElementById('icon-timer');
+            const btn = document.getElementById('btn-toggle-timer');
+            if (appState.timerRunning) {
+                icon.className = 'fa-solid fa-pause text-xs';
+                btn.className = 'w-8 h-8 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center transition shadow';
+                showToast('Timer pertandingan dilanjutkan', 'info');
+            } else {
+                icon.className = 'fa-solid fa-play text-xs';
+                btn.className = 'w-8 h-8 rounded-lg bg-amber-600 hover:bg-amber-500 text-white flex items-center justify-center transition shadow';
+                showToast('Timer pertandingan dijeda', 'warning');
+            }
+        }
+
+        function resetMatchTimer() {
+            appState.timerSeconds = 0;
+            document.getElementById('match-timer').textContent = '00:00';
+            showToast('Durasi match di-reset ke 00:00', 'info');
+        }
+
+        /**
+         * ============================================================================
+         * 3. LINEUP OTOMATIS, PENANDA SETTER/LIBERO, ROTASI & CHANGE (L <-> MB)
+         * ============================================================================
+         */
+        function autoFillLineup(presetKey) {
+            const preset = ROSTER_PRESETS[presetKey];
+            if (!preset) return;
+            appState.players = JSON.parse(JSON.stringify(preset.court));
+            appState.libero = JSON.parse(JSON.stringify(preset.libero));
+            appState.rotationCount = 1;
+            updateRotationBadge();
+            renderLineupUI();
+            renderPlayerSelector();
+            drawCourt();
+            showToast(`Lineup otomatis diisi (${presetKey.toUpperCase()}) dengan penanda Setter & Libero`, 'success');
+        }
+
+        function updateRotationBadge() {
+            document.getElementById('rotation-badge').textContent = `Rotasi ${appState.rotationCount} (P1: #${appState.players[0].number})`;
+        }
+
+        // Rotasi searah jarum jam: P2->P1, P3->P2, P4->P3, P5->P4, P6->P5, P1->P6
+        function rotatePlayers() {
+            const p = appState.players;
+            // Urutan array: [0:P1, 1:P2, 2:P3, 3:P4, 4:P5, 5:P6]
+            // Saat rotasi bola voli: pemain di P2 pindah ke P1 (servis), P3->P2, P4->P3, P5->P4, P6->P5, P1->P6
+            const oldP1 = { ...p[0] };
+            p[0] = { ...p[1], pos: 'P1' };
+            p[1] = { ...p[2], pos: 'P2' };
+            p[2] = { ...p[3], pos: 'P3' };
+            p[3] = { ...p[4], pos: 'P4' };
+            p[4] = { ...p[5], pos: 'P5' };
+            p[5] = { ...oldP1, pos: 'P6' };
+
+            appState.rotationCount = (appState.rotationCount % 6) + 1;
+            updateRotationBadge();
+            renderLineupUI();
+            renderPlayerSelector();
+            drawCourt();
+
+            // Catat otomatis ke log sistem
+            const ts = getAutoTimestamp();
+            appState.logs.unshift({
+                id: Date.now(),
+                time: ts.clock,
+                matchTime: ts.matchTime,
+                player: `Tim (Rotasi ${appState.rotationCount})`,
+                role: 'SYS',
+                technique: 'System',
+                outcome: 'ROTASI +1',
+                outcomeColor: 'blue',
+                note: `Rotasi otomatis ke posisi ${appState.rotationCount}. Server: #${p[0].number} ${p[0].name}`
+            });
+            renderLogs();
+            if (analyticsVisible) updateAnalytics();
+            showToast(`Rotasi Otomatis berhasil! Server P1 sekarang: #${p[0].number} ${p[0].name}`, 'info');
+        }
+
+        // Kode Change khusus Libero <-> Middle Blocker
+        function triggerLiberoChange() {
+            // Cari Middle Blocker di baris belakang (P1 index 0, P6 index 5, P5 index 4) atau Libero yang sedang di lapangan
+            const backIndices = [5, 4, 0]; // Prioritas P6, P5, P1
+            let targetIdx = -1;
+
+            if (!appState.libero.isOnCourt) {
+                // Libero masuk menggantikan MB di baris belakang
+                targetIdx = backIndices.find(idx => appState.players[idx].role === 'MB');
+                if (targetIdx === -1) {
+                    // Jika tidak ada MB di belakang, ambil pemain baris belakang pertama selain Setter
+                    targetIdx = backIndices.find(idx => appState.players[idx].role !== 'S');
+                }
+                if (targetIdx !== -1) {
+                    const outPlayer = { ...appState.players[targetIdx] };
+                    appState.libero.replacedPlayer = outPlayer;
+                    appState.libero.isOnCourt = true;
+
+                    appState.players[targetIdx] = {
+                        pos: outPlayer.pos,
+                        number: appState.libero.number,
+                        name: appState.libero.name,
+                        role: 'L'
+                    };
+
+                    logLiberoChange(`Libero #${appState.libero.number} MASUK menggantikan MB #${outPlayer.number} (${outPlayer.name}) di ${outPlayer.pos}`);
+                    showToast(`CHG (L ↔ MB): Libero #${appState.libero.number} masuk di ${outPlayer.pos}`, 'success');
+                }
+            } else {
+                // Libero keluar, MB kembali masuk
+                const libIdx = appState.players.findIndex(pl => pl.role === 'L');
+                const restored = appState.libero.replacedPlayer;
+                if (libIdx !== -1 && restored) {
+                    appState.players[libIdx] = { ...restored, pos: appState.players[libIdx].pos };
+                    appState.libero.isOnCourt = false;
+                    appState.libero.replacedPlayer = null;
+
+                    logLiberoChange(`Libero #${appState.libero.number} KELUAR, MB #${restored.number} (${restored.name}) kembali ke ${appState.players[libIdx].pos}`);
+                    showToast(`CHG (L ↔ MB): MB #${restored.number} kembali ke lapangan`, 'info');
+                }
+            }
+
+            renderLineupUI();
+            renderPlayerSelector();
+            drawCourt();
+        }
+
+        function logLiberoChange(description) {
+            const ts = getAutoTimestamp();
+            appState.logs.unshift({
+                id: Date.now(),
+                time: ts.clock,
+                matchTime: ts.matchTime,
+                player: `Libero #${appState.libero.number}`,
+                role: 'L',
+                technique: 'Libero',
+                outcome: 'CHG (L↔MB)',
+                outcomeColor: 'purple',
+                note: description
+            });
+            renderLogs();
+        }
+
+        function updatePlayerField(index, field, value) {
+            appState.players[index][field] = value;
+            renderPlayerSelector();
+            drawCourt();
+        }
+
+        function updateLiberoField(field, value) {
+            appState.libero[field] = value;
+            if (appState.libero.isOnCourt) {
+                const idx = appState.players.findIndex(p => p.role === 'L');
+                if (idx !== -1) appState.players[idx][field] = value;
+            }
+            renderPlayerSelector();
+            drawCourt();
+        }
+
+        function renderLineupUI() {
+            const container = document.getElementById('lineup-list');
+            container.innerHTML = '';
+
+            appState.players.forEach((pl, idx) => {
+                const isSetter = pl.role === 'S';
+                const isLibero = pl.role === 'L';
+                const isMB = pl.role === 'MB';
+
+                let badgeHtml = `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-700 text-slate-300">${pl.role}</span>`;
+                let rowBorder = 'border-slate-800 bg-slate-800/50';
+
+                if (isSetter) {
+                    badgeHtml = `<span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-amber-500/20 text-amber-300 border border-amber-500/50" title="Setter"><i class="fa-solid fa-crown text-[9px] mr-0.5"></i>S</span>`;
+                    rowBorder = 'border-amber-500/40 bg-amber-950/20';
+                } else if (isLibero) {
+                    badgeHtml = `<span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-purple-500/20 text-purple-300 border border-purple-500/50" title="Libero"><i class="fa-solid fa-shield text-[9px] mr-0.5"></i>L</span>`;
+                    rowBorder = 'border-purple-500/40 bg-purple-950/20';
+                } else if (isMB) {
+                    badgeHtml = `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/40">MB</span>`;
+                }
+
+                const row = document.createElement('div');
+                row.className = `flex items-center gap-1.5 p-1.5 rounded-xl border ${rowBorder} transition`;
+                row.innerHTML = `
+                    <span class="w-6 text-[11px] font-mono font-bold text-slate-400 text-center">${pl.pos}</span>
+                    ${badgeHtml}
+                    <input type="text" value="${pl.number}" onchange="updatePlayerField(${idx}, 'number', this.value)" class="w-9 bg-slate-900 border border-slate-700 rounded-lg px-1 py-1 text-center font-mono text-xs font-bold text-white focus:border-orange-500 focus:outline-none" title="Nomor Punggung">
+                    <input type="text" value="${pl.name}" onchange="updatePlayerField(${idx}, 'name', this.value)" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-200 focus:border-orange-500 focus:outline-none" title="Nama Pemain">
+                    <select onchange="updatePlayerField(${idx}, 'role', this.value); renderLineupUI();" class="bg-slate-900 border border-slate-700 rounded-lg px-1 py-1 text-[10px] font-bold text-slate-300 focus:outline-none" title="Ubah Role">
+                        <option value="S" ${pl.role === 'S' ? 'selected' : ''}>S</option>
+                        <option value="OH" ${pl.role === 'OH' ? 'selected' : ''}>OH</option>
+                        <option value="MB" ${pl.role === 'MB' ? 'selected' : ''}>MB</option>
+                        <option value="OP" ${pl.role === 'OP' ? 'selected' : ''}>OP</option>
+                        <option value="L" ${pl.role === 'L' ? 'selected' : ''}>L</option>
+                    </select>
+                `;
+                container.appendChild(row);
+            });
+
+            // Render Slot Khusus Libero yang Disendirikan
+            const libContainer = document.getElementById('libero-slot-container');
+            const libStatusTag = document.getElementById('libero-status-tag');
+            if (appState.libero.isOnCourt) {
+                libStatusTag.textContent = 'Aktif di Lapangan';
+                libStatusTag.className = 'text-[10px] px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-600/50 font-bold';
+            } else {
+                libStatusTag.textContent = 'Zona Khusus Libero';
+                libStatusTag.className = 'text-[10px] px-1.5 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-700/50';
+            }
+
+            libContainer.innerHTML = `
+                <span class="px-2 py-1 rounded-lg bg-purple-600 text-white font-extrabold text-xs shadow">L</span>
+                <input type="text" value="${appState.libero.number}" onchange="updateLiberoField('number', this.value)" class="w-10 bg-slate-900 border border-purple-500/40 rounded-lg px-1.5 py-1 text-center font-mono text-xs font-bold text-purple-200 focus:outline-none">
+                <input type="text" value="${appState.libero.name}" onchange="updateLiberoField('name', this.value)" class="flex-1 min-w-0 bg-slate-900 border border-purple-500/40 rounded-lg px-2 py-1 text-xs text-purple-100 focus:outline-none">
+                <button onclick="triggerLiberoChange()" class="px-2 py-1 rounded-lg bg-purple-700 hover:bg-purple-600 text-white text-[10px] font-bold transition" title="Tukar Libero dengan Middle Blocker">
+                    CHG
+                </button>
+            `;
+        }
+
+        /**
+         * ============================================================================
+         * 4. PEMILIHAN PEMAIN, TEKNIK & KODE KONTEKSTUAL (SERVE = NO POINT)
+         * ============================================================================
+         */
+        function renderPlayerSelector() {
+            const grid = document.getElementById('player-selector-grid');
+            grid.innerHTML = '';
+
+            // 6 Pemain di Lapangan
+            appState.players.forEach(pl => {
+                const isSelected = appState.selectedPlayerId === pl.pos;
+                let roleAccent = 'border-slate-700 bg-slate-800/80 text-slate-200';
+                if (pl.role === 'S') roleAccent = 'border-amber-500/50 bg-amber-950/30 text-amber-200';
+                if (pl.role === 'L') roleAccent = 'border-purple-500/50 bg-purple-950/30 text-purple-200';
+
+                if (isSelected) {
+                    roleAccent = 'border-orange-500 bg-orange-600 text-white shadow-md shadow-orange-600/30 ring-2 ring-orange-400/50';
+                }
+
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.onclick = () => {
+                    appState.selectedPlayerId = pl.pos;
+                    renderPlayerSelector();
+                    drawCourt();
+                };
+                btn.className = `p-1.5 rounded-xl border text-left transition flex flex-col justify-between ${roleAccent}`;
+                btn.innerHTML = `
+                    <div class="flex items-center justify-between w-full">
+                        <span class="text-[10px] font-mono opacity-80">${pl.pos}</span>
+                        <span class="text-[9px] font-extrabold px-1 rounded bg-black/30">${pl.role}</span>
+                    </div>
+                    <div class="font-mono font-extrabold text-xs mt-0.5">#${pl.number}</div>
+                    <div class="text-[10px] truncate w-full opacity-90">${pl.name.split(' ')[0]}</div>
+                `;
+                grid.appendChild(btn);
+            });
+
+            // Tombol Libero Terpisah (Jika belum masuk lapangan, tetap bisa dipilih langsung)
+            if (!appState.libero.isOnCourt) {
+                const isSelected = appState.selectedPlayerId === 'LIBERO';
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.onclick = () => {
+                    appState.selectedPlayerId = 'LIBERO';
+                    selectTechnique('Libero');
+                    renderPlayerSelector();
+                    drawCourt();
+                };
+                btn.className = `p-1.5 rounded-xl border text-left transition flex flex-col justify-between ${
+                    isSelected
+                        ? 'border-purple-400 bg-purple-600 text-white shadow-md ring-2 ring-purple-400/50'
+                        : 'border-purple-500/50 bg-purple-950/40 text-purple-200 hover:bg-purple-900/50'
+                }`;
+                btn.innerHTML = `
+                    <div class="flex items-center justify-between w-full">
+                        <span class="text-[10px] font-mono">ZONE</span>
+                        <span class="text-[9px] font-extrabold px-1 rounded bg-purple-500/40">L</span>
+                    </div>
+                    <div class="font-mono font-extrabold text-xs mt-0.5">#${appState.libero.number}</div>
+                    <div class="text-[10px] truncate w-full">${appState.libero.name.split(' ')[0]}</div>
+                `;
+                grid.appendChild(btn);
+            }
+        }
+
+        function selectTechnique(tech) {
+            appState.selectedTechnique = tech;
+
+            // Update visual tombol teknik
+            document.querySelectorAll('.tech-btn').forEach(btn => {
+                const isMatch = btn.getAttribute('data-tech') === tech;
+                if (isMatch) {
+                    btn.className = 'tech-btn py-2 px-2 rounded-xl border border-orange-500 bg-orange-600 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md shadow-orange-600/20 transition';
+                } else {
+                    btn.className = 'tech-btn py-2 px-2 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center justify-center gap-1.5 transition';
+                }
+            });
+
+            // Update info aturan kode (khusus Serve)
+            const hintEl = document.getElementById('code-rule-hint');
+            if (tech === 'Serve') {
+                hintEl.textContent = '*Kode POINT dihapus pada Serve (Gunakan ACE / IN / ERROR)';
+            } else if (tech === 'Setter') {
+                hintEl.textContent = '*Tip: Aktifkan "Sudut Belakang" untuk melihat arah set';
+            } else if (tech === 'Libero') {
+                hintEl.textContent = '*Tersedia kode CHG (L↔MB) & Dig';
+            } else {
+                hintEl.textContent = '';
+            }
+
+            // Render Kode Hasil Kontekstual
+            const codes = TECHNIQUE_CODES[tech] || [];
+            appState.selectedOutcome = codes[0]?.code || '';
+            renderOutcomeCodes(codes);
+
+            // Render Preset Arah Cepat untuk teknik ini
+            renderQuickDirectionPresets(tech);
+
+            // Gambar ulang canvas untuk menyesuaikan warna panah teknik
+            drawCourt();
+        }
+
+        function renderOutcomeCodes(codes) {
+            const container = document.getElementById('outcome-codes-container');
+            container.innerHTML = '';
+
+            const colorMap = {
+                emerald: { active: 'bg-emerald-600 border-emerald-400 text-white shadow-emerald-600/20', idle: 'bg-emerald-950/30 border-emerald-700/50 text-emerald-300 hover:bg-emerald-900/50' },
+                blue: { active: 'bg-blue-600 border-blue-400 text-white shadow-blue-600/20', idle: 'bg-blue-950/30 border-blue-700/50 text-blue-300 hover:bg-blue-900/50' },
+                amber: { active: 'bg-amber-600 border-amber-400 text-white shadow-amber-600/20', idle: 'bg-amber-950/30 border-amber-700/50 text-amber-300 hover:bg-amber-900/50' },
+                purple: { active: 'bg-purple-600 border-purple-400 text-white shadow-purple-600/20', idle: 'bg-purple-950/30 border-purple-700/50 text-purple-300 hover:bg-purple-900/50' },
+                teal: { active: 'bg-teal-600 border-teal-400 text-white shadow-teal-600/20', idle: 'bg-teal-950/30 border-teal-700/50 text-teal-300 hover:bg-teal-900/50' },
+                red: { active: 'bg-red-600 border-red-400 text-white shadow-red-600/20', idle: 'bg-red-950/30 border-red-700/50 text-red-300 hover:bg-red-900/50' }
+            };
+
+            codes.forEach(item => {
+                const isSelected = appState.selectedOutcome === item.code;
+                const styles = colorMap[item.color] || colorMap.blue;
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.title = item.desc;
+                btn.onclick = () => {
+                    if (item.code === 'CHG (L↔MB)') {
+                        triggerLiberoChange();
+                        return;
+                    }
+                    appState.selectedOutcome = item.code;
+                    renderOutcomeCodes(codes);
+                };
+                btn.className = `py-2 px-2.5 rounded-xl border text-xs font-extrabold transition shadow ${isSelected ? styles.active : styles.idle}`;
+                btn.textContent = item.label;
+                container.appendChild(btn);
+            });
+        }
+
+        function renderQuickDirectionPresets(tech) {
+            const container = document.getElementById('quick-direction-presets');
+            container.innerHTML = '';
+            const presets = DIRECTION_PRESETS[tech] || [];
+
+            presets.forEach(pr => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.onclick = () => {
+                    appState.currentArrow = {
+                        startNorm: { x: pr.from[0], y: pr.from[1] },
+                        endNorm: { x: pr.to[0], y: pr.to[1] },
+                        label: pr.label
+                    };
+                    document.getElementById('action-note-input').value = pr.label;
+                    updateArrowCoordsBadge();
+                    drawCourt();
+                };
+                btn.className = 'px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] font-medium transition';
+                btn.textContent = pr.label;
+                container.appendChild(btn);
+            });
+        }
+
+        /**
+         * ============================================================================
+         * 5. LAPANGAN INTERAKTIF (TOP-DOWN 2D & REAR ANGLE 3D) + CUSTOM ARROW DRAWING
+         * ============================================================================
+         */
+        let canvas, ctx;
+
+        function initCanvas() {
+            canvas = document.getElementById('volleyball-canvas');
+            ctx = canvas.getContext('2d');
+
+            let resizePending = false;
+            const resizeObserver = new ResizeObserver(() => {
+                if (!resizePending) {
+                    resizePending = true;
+                    window.requestAnimationFrame(() => {
+                        resizeCanvas();
+                        resizePending = false;
+                    });
+                }
+            });
+            resizeObserver.observe(document.getElementById('court-container'));
+
+            // Event Mouse & Touch untuk Menggambar Panah Arah Bola Sendiri
+            canvas.addEventListener('mousedown', handlePointerDown);
+            canvas.addEventListener('mousemove', handlePointerMove);
+            window.addEventListener('mouseup', handlePointerUp);
+
+            canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+            canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+            window.addEventListener('touchend', handlePointerUp);
+        }
+
+        function resizeCanvas() {
+            const container = document.getElementById('court-container');
+            if (!container || !canvas) return;
+            const rect = container.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            const targetW = Math.round(rect.width * dpr);
+            const targetH = Math.round(rect.height * dpr);
+
+            if (canvas.width !== targetW || canvas.height !== targetH) {
+                canvas.width = targetW;
+                canvas.height = targetH;
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                drawCourt();
+            }
+        }
+
+        function clearCurrentArrow() {
+            appState.currentArrow = null;
+            document.getElementById('action-note-input').value = '';
+            updateArrowCoordsBadge();
+            drawCourt();
+        }
+
+        function updateArrowCoordsBadge() {
+            const badge = document.getElementById('arrow-coords-badge');
+            if (!badge) return;
+            if (appState.currentArrow && appState.currentArrow.label) {
+                badge.textContent = `Arah: ${appState.currentArrow.label}`;
+                badge.className = 'font-mono text-[10px] text-orange-300 bg-orange-950/60 px-2 py-0.5 rounded border border-orange-500/40 shrink-0';
+            } else {
+                badge.textContent = 'Arah: Belum digambar';
+                badge.className = 'font-mono text-[10px] text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-700 shrink-0';
+            }
+        }
+
+        function setCameraAngle(angle) {
+            appState.cameraAngle = angle;
+            const btnTop = document.getElementById('btn-view-top');
+            const btnRear = document.getElementById('btn-view-rear');
+            const label = document.getElementById('view-angle-label');
+
+            if (angle === 'top') {
+                btnTop.className = 'px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 bg-orange-600 text-white shadow transition';
+                btnRear.className = 'px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 text-slate-300 hover:text-white transition';
+                label.textContent = 'Sudut: Atas (Full Court)';
+            } else {
+                btnRear.className = 'px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 bg-orange-600 text-white shadow transition';
+                btnTop.className = 'px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 text-slate-300 hover:text-white transition';
+                label.textContent = 'Sudut: Belakang 3D (Arah Umpan Setter)';
+            }
+            drawCourt();
+        }
+
+        function normToScreen(nx, ny, w, h) {
+            if (appState.cameraAngle === 'rear') {
+                // Perspektif 3D dari belakang garis servis (trapesium: atas menyempit, bawah melebar)
+                const topY = h * 0.16;
+                const botY = h * 0.90;
+                const y = topY + ny * (botY - topY);
+
+                const topHalfW = w * 0.23;
+                const botHalfW = w * 0.42;
+                const halfW = topHalfW + ny * (botHalfW - topHalfW);
+                const centerX = w * 0.52;
+                const x = centerX + (nx - 0.5) * 2 * halfW;
+                return { x, y };
+            } else {
+                // Tampak Atas 2D standar
+                const padLeft = Math.max(58, w * 0.14);
+                const padRight = Math.max(24, w * 0.08);
+                const padTop = h * 0.07;
+                const padBot = h * 0.08;
+                const courtW = w - padLeft - padRight;
+                const courtH = h - padTop - padBot;
+                return {
+                    x: padLeft + nx * courtW,
+                    y: padTop + ny * courtH
+                };
+            }
+        }
+
+        function screenToNorm(sx, sy, w, h) {
+            if (appState.cameraAngle === 'rear') {
+                const topY = h * 0.16;
+                const botY = h * 0.90;
+                const ny = Math.max(0, Math.min(1, (sy - topY) / (botY - topY)));
+
+                const topHalfW = w * 0.23;
+                const botHalfW = w * 0.42;
+                const halfW = topHalfW + ny * (botHalfW - topHalfW);
+                const centerX = w * 0.52;
+                const nx = Math.max(0, Math.min(1, 0.5 + (sx - centerX) / (2 * halfW)));
+                return { x: nx, y: ny };
+            } else {
+                const padLeft = Math.max(58, w * 0.14);
+                const padRight = Math.max(24, w * 0.08);
+                const padTop = h * 0.07;
+                const padBot = h * 0.08;
+                const courtW = w - padLeft - padRight;
+                const courtH = h - padTop - padBot;
+                return {
+                    x: Math.max(0, Math.min(1, (sx - padLeft) / courtW)),
+                    y: Math.max(0, Math.min(1, (sy - padTop) / courtH))
+                };
+            }
+        }
+
+        function getZoneNameFromNorm(norm) {
+            const col = norm.x < 0.333 ? 'Kiri' : (norm.x < 0.667 ? 'Tengah' : 'Kanan');
+            if (norm.y < 0.5) {
+                const zone = norm.y < 0.25
+                    ? (norm.x < 0.333 ? 'Zona 1' : (norm.x < 0.667 ? 'Zona 6' : 'Zona 5'))
+                    : (norm.x < 0.333 ? 'Zona 2' : (norm.x < 0.667 ? 'Zona 3' : 'Zona 4'));
+                return `${zone} Lawan (${col})`;
+            } else {
+                const zone = norm.y < 0.67
+                    ? (norm.x < 0.333 ? 'Posisi 4' : (norm.x < 0.667 ? 'Posisi 3' : 'Posisi 2'))
+                    : (norm.x < 0.333 ? 'Posisi 5' : (norm.x < 0.667 ? 'Posisi 6' : 'Posisi 1'));
+                return `${zone} Tim (${col})`;
+            }
+        }
+
+        function getCanvasPoint(clientX, clientY) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: clientX - rect.left,
+                y: clientY - rect.top,
+                w: rect.width,
+                h: rect.height
+            };
+        }
+
+        function handlePointerDown(e) {
+            const pt = getCanvasPoint(e.clientX, e.clientY);
+            startArrowInteraction(pt.x, pt.y, pt.w, pt.h);
+        }
+
+        function handleTouchStart(e) {
+            if (e.touches.length > 0) {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const pt = getCanvasPoint(touch.clientX, touch.clientY);
+                startArrowInteraction(pt.x, pt.y, pt.w, pt.h);
+            }
+        }
+
+        function startArrowInteraction(sx, sy, w, h) {
+            // Cek apakah pengguna mengklik token pemain di lapangan untuk memilih pemain tersebut
+            for (const pl of appState.players) {
+                const posNorm = POSITION_COORDS[pl.pos];
+                if (!posNorm) continue;
+                const pScreen = normToScreen(posNorm.x, posNorm.y, w, h);
+                const dist = Math.hypot(sx - pScreen.x, sy - pScreen.y);
+                if (dist <= 22) {
+                    appState.selectedPlayerId = pl.pos;
+                    renderPlayerSelector();
+                    break;
+                }
+            }
+
+            // Cek klik pada zona Libero terpisah
+            if (!appState.libero.isOnCourt) {
+                const anchor = normToScreen(0, 0.78, w, h);
+                const boxX = Math.max(8, anchor.x - 54);
+                const boxY = anchor.y - 26;
+                if (sx >= boxX && sx <= boxX + 46 && sy >= boxY && sy <= boxY + 52) {
+                    appState.selectedPlayerId = 'LIBERO';
+                    selectTechnique('Libero');
+                    renderPlayerSelector();
+                }
+            }
+
+            const startNorm = screenToNorm(sx, sy, w, h);
+            appState.isDrawing = true;
+            appState.dragStart = startNorm;
+            appState.currentArrow = {
+                startNorm,
+                endNorm: startNorm,
+                label: ''
+            };
+            drawCourt();
+        }
+
+        function handlePointerMove(e) {
+            if (!appState.isDrawing) return;
+            const pt = getCanvasPoint(e.clientX, e.clientY);
+            updateArrowInteraction(pt.x, pt.y, pt.w, pt.h);
+        }
+
+        function handleTouchMove(e) {
+            if (!appState.isDrawing || e.touches.length === 0) return;
+            e.preventDefault();
+            const touch = e.touches[0];
+            const pt = getCanvasPoint(touch.clientX, touch.clientY);
+            updateArrowInteraction(pt.x, pt.y, pt.w, pt.h);
+        }
+
+        function updateArrowInteraction(sx, sy, w, h) {
+            const endNorm = screenToNorm(sx, sy, w, h);
+            appState.currentArrow.endNorm = endNorm;
+            drawCourt();
+        }
+
+        function handlePointerUp() {
+            if (!appState.isDrawing) return;
+            appState.isDrawing = false;
+
+            if (appState.currentArrow) {
+                const dx = appState.currentArrow.endNorm.x - appState.currentArrow.startNorm.x;
+                const dy = appState.currentArrow.endNorm.y - appState.currentArrow.startNorm.y;
+                const dist = Math.hypot(dx, dy);
+
+                if (dist < 0.03) {
+                    // Jika hanya klik tanpa drag jauh, hubungkan otomatis dari posisi pemain terpilih ke titik klik
+                    const playerStart = getSelectedPlayerNormPos();
+                    appState.currentArrow.startNorm = playerStart;
+                }
+
+                const fromText = getZoneNameFromNorm(appState.currentArrow.startNorm);
+                const toText = getZoneNameFromNorm(appState.currentArrow.endNorm);
+                const label = `${fromText} → ${toText}`;
+                appState.currentArrow.label = label;
+                document.getElementById('action-note-input').value = label;
+                updateArrowCoordsBadge();
+                drawCourt();
+            }
+        }
+
+        // Koordinat standar 6 posisi di lapangan (0..1)
+        const POSITION_COORDS = {
+            P4: { x: 0.20, y: 0.58 }, // Depan Kiri
+            P3: { x: 0.50, y: 0.58 }, // Depan Tengah
+            P2: { x: 0.80, y: 0.58 }, // Depan Kanan
+            P5: { x: 0.20, y: 0.82 }, // Belakang Kiri
+            P6: { x: 0.50, y: 0.82 }, // Belakang Tengah
+            P1: { x: 0.80, y: 0.82 }  // Belakang Kanan (Server)
+        };
+
+        function getSelectedPlayerNormPos() {
+            if (appState.selectedPlayerId === 'LIBERO') {
+                return { x: 0.06, y: 0.78 };
+            }
+            return POSITION_COORDS[appState.selectedPlayerId] || { x: 0.5, y: 0.75 };
+        }
+
+        /**
+         * ============================================================================
+         * 6. RENDERING LAPANGAN (2D ATAS & 3D BELAKANG), PEMAIN, NET & PANAH LINTASAN
+         * ============================================================================
+         */
+        function drawCourt() {
+            if (!ctx || !canvas) return;
+            const rect = canvas.getBoundingClientRect();
+            const w = rect.width;
+            const h = rect.height;
+
+            ctx.clearRect(0, 0, w, h);
+
+            // Background Arena (Biru Laut / Slate Gelap)
+            const bgGrad = ctx.createLinearGradient(0, 0, 0, h);
+            bgGrad.addColorStop(0, '#0f172a');
+            bgGrad.addColorStop(1, '#1e293b');
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, w, h);
+
+            // Gambar Polygon Lapangan Utama
+            const tl = normToScreen(0, 0, w, h);
+            const tr = normToScreen(1, 0, w, h);
+            const br = normToScreen(1, 1, w, h);
+            const bl = normToScreen(0, 1, w, h);
+
+            // Area Free Zone Luar
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(tl.x - 18, tl.y - 14);
+            ctx.lineTo(tr.x + 18, tr.y - 14);
+            ctx.lineTo(br.x + 28, br.y + 22);
+            ctx.lineTo(bl.x - 28, bl.y + 22);
+            ctx.closePath();
+            ctx.fillStyle = '#1e3a8a';
+            ctx.fill();
+            ctx.restore();
+
+            // Lantai Kayu / Oranye Lapangan Voli
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(tl.x, tl.y);
+            ctx.lineTo(tr.x, tr.y);
+            ctx.lineTo(br.x, br.y);
+            ctx.lineTo(bl.x, bl.y);
+            ctx.closePath();
+            const courtGrad = ctx.createLinearGradient(0, tl.y, 0, bl.y);
+            courtGrad.addColorStop(0, '#c2591b');
+            courtGrad.addColorStop(0.5, '#d97736');
+            courtGrad.addColorStop(1, '#b85d22');
+            ctx.fillStyle = courtGrad;
+            ctx.fill();
+
+            // Garis Batas Luar Lapangan
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+
+            // Garis Serang Lawan (3 Meter - ny = 0.333)
+            const atkOppL = normToScreen(0, 0.333, w, h);
+            const atkOppR = normToScreen(1, 0.333, w, h);
+            ctx.beginPath();
+            ctx.moveTo(atkOppL.x, atkOppL.y);
+            ctx.lineTo(atkOppR.x, atkOppR.y);
+            ctx.lineWidth = 1.8;
+            ctx.stroke();
+
+            // Garis Serang Tim Kita (3 Meter - ny = 0.667)
+            const atkOurL = normToScreen(0, 0.667, w, h);
+            const atkOurR = normToScreen(1, 0.667, w, h);
+            ctx.beginPath();
+            ctx.moveTo(atkOurL.x, atkOurL.y);
+            ctx.lineTo(atkOurR.x, atkOurR.y);
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Garis Zona Tipis (1-6)
+            ctx.setLineDash([4, 4]);
+            ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+            ctx.lineWidth = 1;
+            [0.333, 0.667].forEach(vx => {
+                const topV = normToScreen(vx, 0, w, h);
+                const botV = normToScreen(vx, 1, w, h);
+                ctx.beginPath();
+                ctx.moveTo(topV.x, topV.y);
+                ctx.lineTo(botV.x, botV.y);
+                ctx.stroke();
+            });
+            ctx.setLineDash([]);
+            ctx.restore();
+
+            // Label Zona di Area Lawan (Z1 - Z6)
+            drawZoneLabels(w, h);
+
+            // Gambar NET (Jaring Tengah ny = 0.5)
+            drawNet(w, h);
+
+            // Gambar Area Khusus Libero di Samping Kiri Lapangan (Terpisah!)
+            drawLiberoZoneOnCourt(w, h);
+
+            // Gambar 6 Pemain di Lapangan dengan Penanda Khusus Setter (S) & Libero (L)
+            drawPlayersOnCourt(w, h);
+
+            // Gambar Panah Arah Bola (Jika sudah digambar)
+            if (appState.currentArrow) {
+                drawTrajectoryArrow(w, h, appState.currentArrow);
+            }
+        }
+
+        function drawZoneLabels(w, h) {
+            const oppZones = [
+                { label: 'Z1', x: 0.20, y: 0.14 },
+                { label: 'Z6', x: 0.50, y: 0.14 },
+                { label: 'Z5', x: 0.80, y: 0.14 },
+                { label: 'Z2', x: 0.20, y: 0.41 },
+                { label: 'Z3', x: 0.50, y: 0.41 },
+                { label: 'Z4', x: 0.80, y: 0.41 }
+            ];
+            ctx.save();
+            ctx.font = '600 11px Inter, sans-serif';
+            ctx.fillStyle = 'rgba(255,255,255,0.45)';
+            ctx.textAlign = 'center';
+            oppZones.forEach(z => {
+                const pos = normToScreen(z.x, z.y, w, h);
+                ctx.fillText(z.label, pos.x, pos.y);
+            });
+            ctx.restore();
+        }
+
+        function drawNet(w, h) {
+            const netL = normToScreen(0, 0.5, w, h);
+            const netR = normToScreen(1, 0.5, w, h);
+
+            ctx.save();
+            if (appState.cameraAngle === 'rear') {
+                // Pada sudut belakang, tampilkan tinggi jaring net 3D agar arah umpan setter & spike terlihat jelas!
+                const netHeight = h * 0.11;
+
+                // Jaring transparan berpola kotak
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.14)';
+                ctx.fillRect(netL.x, netL.y - netHeight, netR.x - netL.x, netHeight);
+
+                // Garis horizontal & vertikal jaring
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+                ctx.lineWidth = 1;
+                for (let i = 1; i <= 4; i++) {
+                    const yOff = netL.y - (netHeight * i) / 5;
+                    ctx.beginPath();
+                    ctx.moveTo(netL.x, yOff);
+                    ctx.lineTo(netR.x, yOff);
+                    ctx.stroke();
+                }
+
+                // Pita Atas Net (Top Tape)
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 3.5;
+                ctx.beginPath();
+                ctx.moveTo(netL.x - 6, netL.y - netHeight);
+                ctx.lineTo(netR.x + 6, netR.y - netHeight);
+                ctx.stroke();
+
+                // Antena Net Kiri & Kanan (Merah-Putih)
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(netL.x, netL.y);
+                ctx.lineTo(netL.x, netL.y - netHeight - 16);
+                ctx.moveTo(netR.x, netR.y);
+                ctx.lineTo(netR.x, netR.y - netHeight - 16);
+                ctx.stroke();
+            } else {
+                // Tampak Atas: Garis Net Tebal + Antena
+                ctx.strokeStyle = '#f8fafc';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(netL.x - 10, netL.y);
+                ctx.lineTo(netR.x + 10, netR.y);
+                ctx.stroke();
+
+                ctx.fillStyle = '#ef4444';
+                ctx.fillRect(netL.x - 10, netL.y - 3, 6, 6);
+                ctx.fillRect(netR.x + 4, netR.y - 3, 6, 6);
+            }
+            ctx.restore();
+        }
+
+        function drawLiberoZoneOnCourt(w, h) {
+            // Kotak khusus Libero di luar garis samping kiri bawah (terpisah dari 6 pemain)
+            const anchor = normToScreen(0, 0.78, w, h);
+            const boxX = Math.max(8, anchor.x - 54);
+            const boxY = anchor.y - 26;
+
+            ctx.save();
+            ctx.fillStyle = appState.libero.isOnCourt ? 'rgba(16, 185, 129, 0.15)' : 'rgba(147, 51, 234, 0.25)';
+            ctx.strokeStyle = appState.libero.isOnCourt ? '#10b981' : '#a855f7';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([3, 3]);
+            ctx.beginPath();
+            ctx.roundRect(boxX, boxY, 46, 52, 8);
+            ctx.fill();
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.font = 'bold 8px Inter, sans-serif';
+            ctx.fillStyle = '#e9d5ff';
+            ctx.textAlign = 'center';
+            ctx.fillText('LIBERO', boxX + 23, boxY + 10);
+
+            if (!appState.libero.isOnCourt) {
+                // Gambar token Libero di area terpisah ini
+                const isSelected = appState.selectedPlayerId === 'LIBERO';
+                ctx.beginPath();
+                ctx.arc(boxX + 23, boxY + 29, 13, 0, Math.PI * 2);
+                ctx.fillStyle = '#9333ea';
+                ctx.fill();
+                ctx.lineWidth = isSelected ? 3 : 1.5;
+                ctx.strokeStyle = isSelected ? '#fde047' : '#ffffff';
+                ctx.stroke();
+
+                ctx.font = 'bold 10px JetBrains Mono, monospace';
+                ctx.fillStyle = '#ffffff';
+                ctx.fillText(`#${appState.libero.number}`, boxX + 23, boxY + 33);
+            } else {
+                ctx.font = '600 8px Inter, sans-serif';
+                ctx.fillStyle = '#6ee7b7';
+                ctx.fillText('ON COURT', boxX + 23, boxY + 31);
+            }
+            ctx.restore();
+        }
+
+        function drawPlayersOnCourt(w, h) {
+            appState.players.forEach(pl => {
+                const norm = POSITION_COORDS[pl.pos];
+                if (!norm) return;
+                const pt = normToScreen(norm.x, norm.y, w, h);
+                const isSelected = appState.selectedPlayerId === pl.pos;
+                const radius = appState.cameraAngle === 'rear' ? 18 : 17;
+
+                ctx.save();
+
+                // Ring sorotan jika pemain sedang dipilih
+                if (isSelected) {
+                    ctx.beginPath();
+                    ctx.arc(pt.x, pt.y, radius + 6, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(249, 115, 22, 0.35)';
+                    ctx.fill();
+                    ctx.strokeStyle = '#fb923c';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+
+                // Warna Jersey / Token berdasarkan Role (Penanda Setter & Libero!)
+                let fillColor = '#0f172a';
+                let borderColor = '#38bdf8';
+                if (pl.role === 'S') {
+                    fillColor = '#b45309'; // Emas/Amber gelap untuk Setter
+                    borderColor = '#fde047';
+                } else if (pl.role === 'L') {
+                    fillColor = '#7e22ce'; // Ungu kontras untuk Libero
+                    borderColor = '#e9d5ff';
+                } else if (pl.role === 'MB') {
+                    fillColor = '#0369a1';
+                    borderColor = '#7dd3fc';
+                }
+
+                // Lingkaran Pemain
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, radius, 0, Math.PI * 2);
+                ctx.fillStyle = fillColor;
+                ctx.fill();
+                ctx.lineWidth = 2.5;
+                ctx.strokeStyle = borderColor;
+                ctx.stroke();
+
+                // Nomor Punggung
+                ctx.font = 'bold 11px JetBrains Mono, monospace';
+                ctx.fillStyle = '#ffffff';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`#${pl.number}`, pt.x, pt.y);
+
+                // Lencana Role di Pojok Kanan Atas Token (S, L, MB, dll)
+                ctx.beginPath();
+                ctx.arc(pt.x + radius * 0.72, pt.y - radius * 0.72, 7.5, 0, Math.PI * 2);
+                ctx.fillStyle = pl.role === 'S' ? '#eab308' : (pl.role === 'L' ? '#a855f7' : '#334155');
+                ctx.fill();
+                ctx.font = 'extrabold 8px Inter, sans-serif';
+                ctx.fillStyle = pl.role === 'S' ? '#0f172a' : '#ffffff';
+                ctx.fillText(pl.role, pt.x + radius * 0.72, pt.y - radius * 0.72);
+
+                // Label Posisi & Nama di bawah token
+                const shortName = pl.name.split(' ')[0];
+                ctx.font = 'bold 10px Inter, sans-serif';
+                const labelText = `${pl.pos} • ${shortName}`;
+                const textW = ctx.measureText(labelText).width + 8;
+
+                ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+                ctx.beginPath();
+                ctx.roundRect(pt.x - textW / 2, pt.y + radius + 3, textW, 14, 4);
+                ctx.fill();
+
+                ctx.fillStyle = pl.role === 'S' ? '#fde047' : (pl.role === 'L' ? '#e9d5ff' : '#f8fafc');
+                ctx.fillText(labelText, pt.x, pt.y + radius + 10);
+
+                ctx.restore();
+            });
+        }
+
+        function drawTrajectoryArrow(w, h, arrow) {
+            const start = normToScreen(arrow.startNorm.x, arrow.startNorm.y, w, h);
+            const end = normToScreen(arrow.endNorm.x, arrow.endNorm.y, w, h);
+            const color = TECHNIQUE_COLORS[appState.selectedTechnique] || '#f97316';
+
+            ctx.save();
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = 3.5;
+
+            // Titik awal (Lingkaran kecil)
+            ctx.beginPath();
+            ctx.arc(start.x, start.y, 5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Jika sudut belakang (3D) & teknik Setter/Spike/Serve, gambar kurva parabola melambung di atas net!
+            if (appState.cameraAngle === 'rear' && (appState.selectedTechnique === 'Setter' || appState.selectedTechnique === 'Serve' || appState.selectedTechnique === 'Spike')) {
+                const midX = (start.x + end.x) / 2;
+                const arcLift = appState.selectedTechnique === 'Setter' ? h * 0.18 : h * 0.12;
+                const midY = Math.min(start.y, end.y) - arcLift;
+
+                ctx.setLineDash(appState.selectedTechnique === 'Setter' ? [6, 4] : []);
+                ctx.beginPath();
+                ctx.moveTo(start.x, start.y);
+                ctx.quadraticCurveTo(midX, midY, end.x, end.y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Hitung sudut tangen di ujung kurva untuk mata panah
+                const angle = Math.atan2(end.y - midY, end.x - midX);
+                drawArrowHead(end.x, end.y, angle, 12);
+            } else {
+                // Garis lurus dengan mata panah tajam
+                ctx.beginPath();
+                ctx.moveTo(start.x, start.y);
+                ctx.lineTo(end.x, end.y);
+                ctx.stroke();
+
+                const angle = Math.atan2(end.y - start.y, end.x - start.x);
+                drawArrowHead(end.x, end.y, angle, 12);
+            }
+
+            ctx.restore();
+        }
+
+        function drawArrowHead(x, y, angle, size) {
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x - size * Math.cos(angle - Math.PI / 6), y - size * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(x - size * Math.cos(angle + Math.PI / 6), y - size * Math.sin(angle + Math.PI / 6));
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        /**
+         * ============================================================================
+         * 7. PENCATATAN AKTIVITAS OTOMATIS, STATISTIK & EXPORT CSV
+         * ============================================================================
+         */
+        function recordTechnicalAction() {
+            let playerObj;
+            if (appState.selectedPlayerId === 'LIBERO') {
+                playerObj = { pos: 'L-ZONE', number: appState.libero.number, name: appState.libero.name, role: 'L' };
+            } else {
+                playerObj = appState.players.find(p => p.pos === appState.selectedPlayerId) || appState.players[0];
+            }
+
+            const tech = appState.selectedTechnique;
+            const codes = TECHNIQUE_CODES[tech] || [];
+            const outcomeObj = codes.find(c => c.code === appState.selectedOutcome) || codes[0];
+            const noteInput = document.getElementById('action-note-input').value.trim();
+            const ts = getAutoTimestamp();
+
+            const entry = {
+                id: Date.now(),
+                time: ts.clock,
+                matchTime: ts.matchTime,
+                rotation: `R${appState.rotationCount}`,
+                player: `#${playerObj.number} ${playerObj.name}`,
+                pos: playerObj.pos,
+                role: playerObj.role,
+                technique: tech,
+                outcome: outcomeObj ? outcomeObj.code : appState.selectedOutcome,
+                outcomeColor: outcomeObj ? outcomeObj.color : 'blue',
+                note: noteInput || (appState.currentArrow ? appState.currentArrow.label : 'Arah standar'),
+                arrow: appState.currentArrow ? JSON.parse(JSON.stringify(appState.currentArrow)) : null
+            };
+
+            appState.logs.unshift(entry);
+            renderLogs();
+            renderStats();
+            if (analyticsVisible) updateAnalytics();
+            showToast(`Tercatat [${ts.clock}]: ${entry.player} — ${tech} (${entry.outcome})`, 'success');
+        }
+
+        function renderLogs() {
+            const list = document.getElementById('activity-log-list');
+            const filter = document.getElementById('log-filter-tech').value;
+            const filtered = filter === 'ALL' ? appState.logs : appState.logs.filter(l => l.technique === filter);
+
+            document.getElementById('log-count').textContent = filtered.length;
+            list.innerHTML = '';
+
+            if (filtered.length === 0) {
+                list.innerHTML = `
+                    <div class="text-center py-8 text-slate-500 text-xs">
+                        <i class="fa-solid fa-clipboard-list text-2xl mb-2 opacity-40"></i>
+                        <p>Belum ada aktivitas tercatat.</p>
+                        <p class="text-[11px] mt-1">Pilih pemain, gambar arah bola di lapangan, lalu klik Catat Aktivitas.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const badgeColors = {
+                emerald: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+                blue: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
+                amber: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
+                purple: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
+                teal: 'bg-teal-500/20 text-teal-300 border-teal-500/40',
+                red: 'bg-red-500/20 text-red-300 border-red-500/40'
+            };
+
+            filtered.forEach(item => {
+                const badgeCls = badgeColors[item.outcomeColor] || badgeColors.blue;
+                const el = document.createElement('div');
+                el.className = 'bg-slate-800/80 border border-slate-700/80 rounded-xl p-2.5 text-xs hover:border-slate-600 transition';
+                el.innerHTML = `
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        <div class="flex items-center gap-1.5">
+                            <span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-slate-900 text-amber-400 border border-slate-700" title="Waktu Otomatis">
+                                <i class="fa-regular fa-clock mr-0.5"></i>${item.time} (${item.matchTime})
+                            </span>
+                            <span class="font-bold text-slate-200">${item.player}</span>
+                        </div>
+                        <span class="px-2 py-0.5 rounded-md border text-[10px] font-extrabold ${badgeCls}">${item.outcome}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-[11px] text-slate-400">
+                        <span><strong class="text-slate-300">${item.technique}</strong> • ${item.note}</span>
+                        ${item.arrow ? `<button onclick="replayArrow(${item.id})" class="text-orange-400 hover:text-orange-300 underline ml-2 shrink-0" title="Tampilkan kembali panah arah ini"><i class="fa-solid fa-eye"></i> Arah</button>` : ''}
+                    </div>
+                `;
+                list.appendChild(el);
+            });
+        }
+
+        function replayArrow(logId) {
+            const item = appState.logs.find(l => l.id === logId);
+            if (item && item.arrow) {
+                if (item.technique !== 'System') {
+                    selectTechnique(item.technique);
+                }
+                appState.currentArrow = JSON.parse(JSON.stringify(item.arrow));
+                updateArrowCoordsBadge();
+                drawCourt();
+                showToast(`Menampilkan arah bola: ${item.note}`, 'info');
+            }
+        }
+
+        function renderStats() {
+            const grid = document.getElementById('live-stats-grid');
+            const techs = ['Serve', 'Spike', 'Passing', 'Libero', 'Setter', 'Block'];
+
+            grid.innerHTML = '';
+            techs.forEach(t => {
+                const items = appState.logs.filter(l => l.technique === t);
+                const total = items.length;
+                const success = items.filter(l => ['emerald', 'blue', 'teal'].includes(l.outcomeColor)).length;
+                const pct = total > 0 ? Math.round((success / total) * 100) : 0;
+
+                const card = document.createElement('div');
+                card.className = 'bg-slate-800/70 border border-slate-700/70 rounded-xl p-2 flex flex-col justify-between';
+                card.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-slate-300">${t}</span>
+                        <span class="font-mono text-[11px] text-slate-400">${success}/${total}</span>
+                    </div>
+                    <div class="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden my-1.5">
+                        <div class="bg-gradient-to-r from-orange-500 to-emerald-400 h-full transition-all duration-300" style="width: ${pct}%"></div>
+                    </div>
+                    <div class="text-right font-mono text-[11px] font-bold ${pct >= 60 ? 'text-emerald-400' : 'text-slate-400'}">${pct}% Efektif</div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function exportToCSV() {
+            if (appState.logs.length === 0) {
+                showToast('Belum ada data aktivitas untuk di-export!', 'warning');
+                return;
+            }
+            const headers = ['Waktu Real-Time', 'Durasi Match', 'Rotasi', 'Pemain', 'Posisi', 'Role', 'Teknik', 'Kode Hasil', 'Arah & Keterangan'];
+            const rows = appState.logs.map(l => [
+                l.time,
+                l.matchTime,
+                l.rotation || '-',
+                `"${l.player}"`,
+                l.pos || '-',
+                l.role || '-',
+                l.technique,
+                `"${l.outcome}"`,
+                `"${l.note.replace(/"/g, '""')}"`
+            ]);
+
+            const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement('a');
+            link.setAttribute('href', encodedUri);
+            link.setAttribute('download', `Volleyball_Technical_Analysis_${new Date().toISOString().slice(0, 10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('Laporan CSV berhasil diunduh!', 'success');
+        }
+
+        // ============================================================================
+        // 8. DASHBOARD GRAFIK & VISUALISASI (Chart.js)
+        // ============================================================================
+        function toggleAnalytics(force) {
+            analyticsVisible = typeof force === 'boolean' ? force : !analyticsVisible;
+            document.querySelector('main').classList.toggle('hidden', analyticsVisible);
+            document.getElementById('analytics-dashboard').classList.toggle('hidden', !analyticsVisible);
+            const btn = document.getElementById('btn-analytics');
+            if (btn) btn.innerHTML = analyticsVisible ? '<i class="fa-solid fa-volleyball"></i><span>Kembali ke Lapangan</span>' : '<i class="fa-solid fa-chart-line"></i><span>Grafik & Visualisasi</span>';
+            if (analyticsVisible) { updateAnalytics(); window.scrollTo({top: 0, behavior: 'smooth'}); }
+        }
+
+        function updateAnalytics() {
+            if (typeof Chart === 'undefined') return;
+            const techs = ['Serve', 'Spike', 'Passing', 'Libero', 'Setter', 'Block'];
+            const positive = l => ['emerald', 'blue', 'teal'].includes(l.outcomeColor);
+            const rows = techs.map(t => {
+                const items = appState.logs.filter(l => l.technique === t);
+                const good = items.filter(positive).length;
+                const bad = items.filter(l => ['red'].includes(l.outcomeColor)).length;
+                const other = items.length - good - bad;
+                return {tech:t, total:items.length, good, bad:bad+other, pct:items.length ? good/items.length*100 : 0};
+            });
+            const total = appState.logs.filter(l => l.technique !== 'System').length;
+            const goodTotal = appState.logs.filter(l => l.technique !== 'System' && positive(l)).length;
+            const errorTotal = appState.logs.filter(l => l.technique !== 'System' && l.outcomeColor === 'red').length;
+            const pct = total ? goodTotal/total*100 : 0;
+            const kpis = [
+                ['Total Aktivitas', total, 'fa-list-check', 'text-blue-300'],
+                ['Hasil Positif', goodTotal, 'fa-circle-check', 'text-emerald-300'],
+                ['Perlu Evaluasi', errorTotal, 'fa-triangle-exclamation', 'text-rose-300'],
+                ['Efektivitas Total', pct.toFixed(1)+'%', 'fa-bullseye', 'text-amber-300']
+            ];
+            document.getElementById('analytics-kpis').innerHTML = kpis.map(k => `<div class="rounded-2xl border border-slate-700 bg-slate-900 p-3.5 shadow-lg"><div class="flex items-center justify-between"><span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">${k[0]}</span><i class="fa-solid ${k[2]} ${k[3]}"></i></div><div class="mt-2 font-mono text-2xl font-extrabold text-white">${k[1]}</div></div>`).join('');
+            document.getElementById('analytics-table').innerHTML = rows.map(r => `<tr><td class="py-2.5 font-bold">${r.tech}</td><td class="py-2.5 text-center font-mono">${r.total}</td><td class="py-2.5 text-center font-mono text-emerald-300">${r.good}</td><td class="py-2.5 text-center font-mono text-rose-300">${r.bad}</td><td class="py-2.5 text-right font-mono font-bold ${r.pct>=60?'text-emerald-300':'text-amber-300'}">${r.pct.toFixed(1)}%</td></tr>`).join('');
+            const common = {responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#cbd5e1', usePointStyle:true, boxWidth:8}}, tooltip:{enabled:true}}, scales:{x:{ticks:{color:'#94a3b8'},grid:{color:'rgba(148,163,184,.10)'}},y:{beginAtZero:true,ticks:{color:'#94a3b8'},grid:{color:'rgba(148,163,184,.12)'}}}};
+            const draw = (id, type, data, options={}) => { if (analyticsCharts[id]) analyticsCharts[id].destroy(); const el=document.getElementById(id); if(el) analyticsCharts[id]=new Chart(el,{type,data,options:{...common,...options}}); };
+            draw('analytics-bar','bar',{labels:rows.map(r=>r.tech),datasets:[{label:'Hasil Positif',data:rows.map(r=>r.good),backgroundColor:'#10b981',borderRadius:7},{label:'Perlu Evaluasi',data:rows.map(r=>r.bad),backgroundColor:'#f43f5e',borderRadius:7}]});
+            draw('analytics-radar','radar',{labels:rows.map(r=>r.tech),datasets:[{label:'Efektivitas (%)',data:rows.map(r=>Number(r.pct.toFixed(1))),backgroundColor:'rgba(139,92,246,.22)',borderColor:'#a78bfa',pointBackgroundColor:'#c4b5fd',borderWidth:2}]},{scales:{r:{min:0,max:100,ticks:{color:'#94a3b8',backdropColor:'transparent'},grid:{color:'rgba(148,163,184,.2)'},angleLines:{color:'rgba(148,163,184,.2)'},pointLabels:{color:'#cbd5e1'}}}});
+            const ordered = appState.logs.filter(l=>l.technique!=='System').slice().reverse(); let good=0;
+            const trend = ordered.map((l,i)=>{if(positive(l))good++;return Number((good/(i+1)*100).toFixed(1));});
+            draw('analytics-trend','line',{labels:ordered.map((l,i)=>`#${i+1}`),datasets:[{label:'Akumulasi efektivitas (%)',data:trend,borderColor:'#818cf8',backgroundColor:'rgba(129,140,248,.15)',fill:true,tension:.35,pointRadius:3}]},{scales:{...common.scales,y:{min:0,max:100,ticks:{color:'#94a3b8',callback:v=>v+'%'},grid:{color:'rgba(148,163,184,.12)'}}}});
+            const outcomeCounts = {};
+            appState.logs.filter(l=>l.technique!=='System').forEach(l=>{const key=l.outcome||'Lainnya';outcomeCounts[key]=(outcomeCounts[key]||0)+1;});
+            draw('analytics-outcomes','doughnut',{labels:Object.keys(outcomeCounts).length?Object.keys(outcomeCounts):['Belum ada data'],datasets:[{data:Object.keys(outcomeCounts).length?Object.values(outcomeCounts):[1],backgroundColor:['#10b981','#3b82f6','#f59e0b','#ef4444','#a855f7','#14b8a6','#6366f1'],borderColor:'#0f172a',borderWidth:3}]},{scales:{}});
+        }
+
+        /**
+         * ============================================================================
+         * 9. MODAL & TOAST NOTIFICATIONS (TANPA ALERT / CONFIRM BAWAAN BROWSER)
+         * ============================================================================
+         */
+        function showConfirmResetModal() {
+            const modal = document.getElementById('reset-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function hideConfirmResetModal() {
+            const modal = document.getElementById('reset-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function confirmResetAll() {
+            appState.logs = [];
+            appState.currentArrow = null;
+            appState.timerSeconds = 0;
+            document.getElementById('match-timer').textContent = '00:00';
+            document.getElementById('action-note-input').value = '';
+            updateArrowCoordsBadge();
+            autoFillLineup('unesa');
+            renderLogs();
+            renderStats();
+            if (analyticsVisible) updateAnalytics();
+            hideConfirmResetModal();
+            showToast('Seluruh data analisis berhasil di-reset', 'info');
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const colors = {
+                success: 'bg-emerald-900/95 border-emerald-500 text-emerald-100',
+                warning: 'bg-amber-900/95 border-amber-500 text-amber-100',
+                info: 'bg-slate-800/95 border-blue-500 text-slate-100'
+            };
+            toast.className = `px-3.5 py-2.5 rounded-xl border shadow-xl text-xs font-semibold flex items-center gap-2 transition-all duration-300 ${colors[type] || colors.info}`;
+            toast.innerHTML = `<i class="fa-solid fa-circle-info"></i> <span>${message}</span>`;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(8px)';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
